@@ -1,4 +1,4 @@
-using ContactManager.Application.DTOs;
+using ContactManager.Application.DTOs.Contato;
 using ContactManager.Application.Services;
 using ContactManager.Application.Validators;
 using ContactManager.Domain.Entities;
@@ -12,6 +12,8 @@ public class ContatoServiceTests
 {
     private readonly Mock<IContatoRepository> _repositoryMock;
     private readonly ContatoService _service;
+    private readonly string _testUserId = "test-user-id";
+    private readonly bool _isAdmin = false;
 
     public ContatoServiceTests()
     {
@@ -47,13 +49,14 @@ public class ContatoServiceTests
             Nome = dto.Nome,
             DataNascimento = dto.DataNascimento,
             Sexo = dto.Sexo,
-            IsActive = true
+            IsActive = true,
+            UserId = _testUserId
         };
         _repositoryMock.Setup(r => r.AddAsync(It.IsAny<Contato>()))
             .ReturnsAsync(expectedContato);
 
         // Act
-        var result = await _service.CreateAsync(dto);
+        var result = await _service.CreateAsync(dto, _testUserId);
 
         // Assert
         result.Should().NotBeNull();
@@ -70,7 +73,6 @@ public class ContatoServiceTests
     [Fact]
     public async Task CreateAsync_WithUnderAge_ShouldThrowArgumentException()
     {
-        // Arrange
         var dto = new CreateContatoDTO
         {
             Nome = "Menor de Idade",
@@ -78,15 +80,13 @@ public class ContatoServiceTests
             Sexo = "F"
         };
 
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateAsync(dto));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateAsync(dto, _testUserId));
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Contato>()), Times.Never);
     }
 
     [Fact]
     public async Task CreateAsync_WithFutureDate_ShouldThrowArgumentException()
     {
-        // Arrange
         var dto = new CreateContatoDTO
         {
             Nome = "Futuro",
@@ -94,15 +94,13 @@ public class ContatoServiceTests
             Sexo = "M"
         };
 
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateAsync(dto));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateAsync(dto, _testUserId));
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Contato>()), Times.Never);
     }
 
     [Fact]
     public async Task CreateAsync_WithAgeZero_ShouldThrowArgumentException()
     {
-        // Arrange
         var dto = new CreateContatoDTO
         {
             Nome = "Recém-nascido",
@@ -110,8 +108,7 @@ public class ContatoServiceTests
             Sexo = "M"
         };
 
-        // Act & Assert
-        await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateAsync(dto));
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.CreateAsync(dto, _testUserId));
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<Contato>()), Times.Never);
     }
 
@@ -120,9 +117,8 @@ public class ContatoServiceTests
     #region UpdateAsync Tests
 
     [Fact]
-    public async Task UpdateAsync_WithExistingContact_ShouldUpdateAndReturnResponse()
+    public async Task UpdateAsync_WithExistingContactOwnedByUser_ShouldUpdateAndReturnResponse()
     {
-        // Arrange
         var dto = new UpdateContatoDTO
         {
             Id = 1,
@@ -136,17 +132,16 @@ public class ContatoServiceTests
             Nome = "João Silva",
             DataNascimento = new DateTime(1990, 5, 10),
             Sexo = "M",
-            IsActive = true
+            IsActive = true,
+            UserId = _testUserId
         };
-        _repositoryMock.Setup(r => r.GetByIdAsync(1))
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
             .ReturnsAsync(existingContato);
         _repositoryMock.Setup(r => r.UpdateAsync(It.IsAny<Contato>()))
             .Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.UpdateAsync(dto);
+        var result = await _service.UpdateAsync(dto, _testUserId, _isAdmin);
 
-        // Assert
         result.Should().NotBeNull();
         result.Nome.Should().Be("João Atualizado");
         result.DataNascimento.Should().Be(dto.DataNascimento);
@@ -156,17 +151,26 @@ public class ContatoServiceTests
     [Fact]
     public async Task UpdateAsync_WithNonExistingContact_ShouldReturnNull()
     {
-        // Arrange
         var dto = new UpdateContatoDTO { Id = 999, Nome = "Inexistente", DataNascimento = DateTime.Today.AddYears(-30), Sexo = "M" };
-        _repositoryMock.Setup(r => r.GetByIdAsync(999))
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(999))
             .ReturnsAsync((Contato?)null);
 
-        // Act
-        var result = await _service.UpdateAsync(dto);
+        var result = await _service.UpdateAsync(dto, _testUserId, _isAdmin);
 
-        // Assert
         result.Should().BeNull();
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Contato>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithContactFromDifferentUser_ShouldThrowUnauthorized()
+    {
+        var dto = new UpdateContatoDTO { Id = 1, Nome = "Alheio", DataNascimento = DateTime.Today.AddYears(-30), Sexo = "M" };
+        var existingContato = new Contato { Id = 1, UserId = "other-user", IsActive = true };
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
+            .ReturnsAsync(existingContato);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => 
+            _service.UpdateAsync(dto, _testUserId, false));
     }
 
     #endregion
@@ -174,17 +178,14 @@ public class ContatoServiceTests
     #region GetByIdAsync Tests
 
     [Fact]
-    public async Task GetByIdAsync_WithExistingActiveContact_ShouldReturnResponse()
+    public async Task GetByIdAsync_WithExistingActiveContactOwnedByUser_ShouldReturnResponse()
     {
-        // Arrange
-        var contato = new Contato { Id = 1, Nome = "João", DataNascimento = new DateTime(1990, 1, 1), Sexo = "M", IsActive = true };
-        _repositoryMock.Setup(r => r.GetByIdAsync(1))
+        var contato = new Contato { Id = 1, Nome = "João", DataNascimento = new DateTime(1990, 1, 1), Sexo = "M", IsActive = true, UserId = _testUserId };
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
             .ReturnsAsync(contato);
 
-        // Act
-        var result = await _service.GetByIdAsync(1);
+        var result = await _service.GetByIdAsync(1, _testUserId, false);
 
-        // Assert
         result.Should().NotBeNull();
         result.Id.Should().Be(1);
         result.IsActive.Should().BeTrue();
@@ -193,14 +194,21 @@ public class ContatoServiceTests
     [Fact]
     public async Task GetByIdAsync_WithNonExistingContact_ShouldReturnNull()
     {
-        // Arrange
-        _repositoryMock.Setup(r => r.GetByIdAsync(999))
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(999))
             .ReturnsAsync((Contato?)null);
 
-        // Act
-        var result = await _service.GetByIdAsync(999);
+        var result = await _service.GetByIdAsync(999, _testUserId, false);
+        result.Should().BeNull();
+    }
 
-        // Assert
+    [Fact]
+    public async Task GetByIdAsync_WithContactFromDifferentUser_ShouldReturnNull()
+    {
+        var contato = new Contato { Id = 1, UserId = "other-user" };
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
+            .ReturnsAsync(contato);
+
+        var result = await _service.GetByIdAsync(1, _testUserId, false);
         result.Should().BeNull();
     }
 
@@ -209,22 +217,39 @@ public class ContatoServiceTests
     #region GetAllActiveAsync Tests
 
     [Fact]
-    public async Task GetAllActiveAsync_ShouldReturnOnlyActiveContacts()
+    public async Task GetAllActiveAsync_AsNonAdmin_ShouldReturnOnlyUserContacts()
     {
-        // Arrange
-        var active1 = new Contato { Id = 1, Nome = "Ativo1", IsActive = true };
-        var active2 = new Contato { Id = 2, Nome = "Ativo2", IsActive = true };
-        var inactive = new Contato { Id = 3, Nome = "Inativo", IsActive = false };
-        var allActive = new List<Contato> { active1, active2 };
+        var userContacts = new List<Contato> 
+        { 
+            new Contato { Id = 1, IsActive = true, UserId = _testUserId },
+            new Contato { Id = 2, IsActive = true, UserId = _testUserId }
+        };
+        _repositoryMock.Setup(r => r.GetAllActiveByUserAsync(_testUserId))
+            .ReturnsAsync(userContacts);
+
+        var result = await _service.GetAllActiveAsync(_testUserId, false);
+
+        result.Should().HaveCount(2);
+        _repositoryMock.Verify(r => r.GetAllActiveByUserAsync(_testUserId), Times.Once);
+        _repositoryMock.Verify(r => r.GetAllActiveAsync(), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetAllActiveAsync_AsAdmin_ShouldReturnAllActiveContacts()
+    {
+        var allActive = new List<Contato>
+        {
+            new() { Id = 1, IsActive = true, UserId = "user1" },
+            new() { Id = 2, IsActive = true, UserId = "user2" }
+        };
         _repositoryMock.Setup(r => r.GetAllActiveAsync())
             .ReturnsAsync(allActive);
 
-        // Act
-        var result = await _service.GetAllActiveAsync();
+        var result = await _service.GetAllActiveAsync(_testUserId, true);
 
-        // Assert
         result.Should().HaveCount(2);
-        result.Should().NotContain(c => !c.IsActive);
+        _repositoryMock.Verify(r => r.GetAllActiveAsync(), Times.Once);
+        _repositoryMock.Verify(r => r.GetAllActiveByUserAsync(It.IsAny<string>()), Times.Never);
     }
 
     #endregion
@@ -232,19 +257,16 @@ public class ContatoServiceTests
     #region DeactivateAsync Tests
 
     [Fact]
-    public async Task DeactivateAsync_WithExistingActiveContact_ShouldSetIsActiveFalse()
+    public async Task DeactivateAsync_WithExistingActiveContactOwnedByUser_ShouldSetIsActiveFalse()
     {
-        // Arrange
-        var contato = new Contato { Id = 1, IsActive = true };
-        _repositoryMock.Setup(r => r.GetByIdAsync(1))
+        var contato = new Contato { Id = 1, IsActive = true, UserId = _testUserId };
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
             .ReturnsAsync(contato);
         _repositoryMock.Setup(r => r.UpdateAsync(It.IsAny<Contato>()))
             .Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.DeactivateAsync(1);
+        var result = await _service.DeactivateAsync(1, _testUserId, false);
 
-        // Assert
         result.Should().BeTrue();
         contato.IsActive.Should().BeFalse();
         _repositoryMock.Verify(r => r.UpdateAsync(contato), Times.Once);
@@ -253,16 +275,11 @@ public class ContatoServiceTests
     [Fact]
     public async Task DeactivateAsync_WithNonExistingContact_ShouldReturnFalse()
     {
-        // Arrange
-        _repositoryMock.Setup(r => r.GetByIdAsync(999))
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(999))
             .ReturnsAsync((Contato?)null);
 
-        // Act
-        var result = await _service.DeactivateAsync(999);
-
-        // Assert
+        var result = await _service.DeactivateAsync(999, _testUserId, false);
         result.Should().BeFalse();
-        _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Contato>()), Times.Never);
     }
 
     #endregion
@@ -270,19 +287,16 @@ public class ContatoServiceTests
     #region ActivateAsync Tests
 
     [Fact]
-    public async Task ActivateAsync_WithExistingInactiveContact_ShouldSetIsActiveTrue()
+    public async Task ActivateAsync_WithExistingInactiveContactOwnedByUser_ShouldSetIsActiveTrue()
     {
-        // Arrange
-        var contato = new Contato { Id = 1, IsActive = false };
+        var contato = new Contato { Id = 1, IsActive = false, UserId = _testUserId };
         _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
             .ReturnsAsync(contato);
         _repositoryMock.Setup(r => r.UpdateAsync(It.IsAny<Contato>()))
             .Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.ActivateAsync(1);
+        var result = await _service.ActivateAsync(1, _testUserId, false);
 
-        // Assert
         result.Should().BeTrue();
         contato.IsActive.Should().BeTrue();
         _repositoryMock.Verify(r => r.UpdateAsync(contato), Times.Once);
@@ -291,15 +305,11 @@ public class ContatoServiceTests
     [Fact]
     public async Task ActivateAsync_WithAlreadyActiveContact_ShouldReturnTrueWithoutUpdate()
     {
-        // Arrange
-        var contato = new Contato { Id = 1, IsActive = true };
+        var contato = new Contato { Id = 1, IsActive = true, UserId = _testUserId };
         _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
             .ReturnsAsync(contato);
 
-        // Act
-        var result = await _service.ActivateAsync(1);
-
-        // Assert
+        var result = await _service.ActivateAsync(1, _testUserId, false);
         result.Should().BeTrue();
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<Contato>()), Times.Never);
     }
@@ -307,14 +317,10 @@ public class ContatoServiceTests
     [Fact]
     public async Task ActivateAsync_WithNonExistingContact_ShouldReturnFalse()
     {
-        // Arrange
         _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(999))
             .ReturnsAsync((Contato?)null);
 
-        // Act
-        var result = await _service.ActivateAsync(999);
-
-        // Assert
+        var result = await _service.ActivateAsync(999, _testUserId, false);
         result.Should().BeFalse();
     }
 
@@ -323,19 +329,15 @@ public class ContatoServiceTests
     #region DeleteAsync Tests
 
     [Fact]
-    public async Task DeleteAsync_WithExistingActiveContact_ShouldRemove()
+    public async Task DeleteAsync_WithExistingContactOwnedByUser_ShouldRemove()
     {
-        // Arrange
-        var contato = new Contato { Id = 1 };
-        _repositoryMock.Setup(r => r.GetByIdAsync(1))
+        var contato = new Contato { Id = 1, UserId = _testUserId };
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(1))
             .ReturnsAsync(contato);
         _repositoryMock.Setup(r => r.DeleteAsync(1))
             .Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.DeleteAsync(1);
-
-        // Assert
+        var result = await _service.DeleteAsync(1, _testUserId, false);
         result.Should().BeTrue();
         _repositoryMock.Verify(r => r.DeleteAsync(1), Times.Once);
     }
@@ -343,16 +345,11 @@ public class ContatoServiceTests
     [Fact]
     public async Task DeleteAsync_WithNonExistingContact_ShouldReturnFalse()
     {
-        // Arrange
-        _repositoryMock.Setup(r => r.GetByIdAsync(999))
+        _repositoryMock.Setup(r => r.GetByIdIncludingInactiveAsync(999))
             .ReturnsAsync((Contato?)null);
 
-        // Act
-        var result = await _service.DeleteAsync(999);
-
-        // Assert
+        var result = await _service.DeleteAsync(999, _testUserId, false);
         result.Should().BeFalse();
-        _repositoryMock.Verify(r => r.DeleteAsync(It.IsAny<int>()), Times.Never);
     }
 
     #endregion

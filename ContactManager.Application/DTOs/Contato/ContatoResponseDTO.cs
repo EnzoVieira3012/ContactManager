@@ -1,4 +1,4 @@
-namespace ContactManager.Application.DTOs;
+namespace ContactManager.Application.DTOs.Contato;
 
 public class ContatoResponseDTO
 {
