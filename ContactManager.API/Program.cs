@@ -13,6 +13,7 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Carrega variáveis do .env
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
 if (File.Exists(envPath))
 {
@@ -24,6 +25,11 @@ if (File.Exists(envPath))
     }
 }
 
+// Log para depuração
+var jwtKeyFromEnv = Environment.GetEnvironmentVariable("JWT_KEY");
+Console.WriteLine($"JWT_KEY from env: {jwtKeyFromEnv}");
+
+// Connection string com placeholders
 var connStringTemplate = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connStringTemplate))
 {
@@ -53,9 +59,14 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-var jwtKey = builder.Configuration["Jwt:Key"];
+// Obtém a chave JWT diretamente do ambiente
+var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY");
 if (string.IsNullOrEmpty(jwtKey))
-    jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "chave-padrao-temporaria-32bytes1234567890";
+{
+    // Fallback seguro para desenvolvimento (não use em produção)
+    jwtKey = "uma-chave-muito-longa-com-pelo-menos-32-caracteres-para-testes";
+    Console.WriteLine("WARNING: JWT_KEY não encontrada no ambiente. Usando chave padrão (apenas para testes).");
+}
 
 builder.Services.AddAuthentication(options =>
 {
