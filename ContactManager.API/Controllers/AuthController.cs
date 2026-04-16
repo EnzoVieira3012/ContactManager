@@ -12,20 +12,13 @@ namespace ContactManager.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController(UserManager<ApplicationUser> userManager,
+                      RoleManager<IdentityRole> roleManager,
+                      IConfiguration configuration) : ControllerBase
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<IdentityRole> _roleManager;
-    private readonly IConfiguration _configuration;
-
-    public AuthController(UserManager<ApplicationUser> userManager,
-                          RoleManager<IdentityRole> roleManager,
-                          IConfiguration configuration)
-    {
-        _userManager = userManager;
-        _roleManager = roleManager;
-        _configuration = configuration;
-    }
+    private readonly UserManager<ApplicationUser> _userManager = userManager;
+    private readonly RoleManager<IdentityRole> _roleManager = roleManager;
+    private readonly IConfiguration _configuration = configuration;
 
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterDTO model)
@@ -80,7 +73,6 @@ public class AuthController : ControllerBase
             return Ok(new { message = "Se o email existir, você receberá um link de redefinição." });
 
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        // Em produção: enviar email com link contendo token
         return Ok(new { token, message = "Use este token para redefinir sua senha." });
     }
 
@@ -110,12 +102,12 @@ public class AuthController : ControllerBase
     {
         var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id!),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email!),
-            new Claim(ClaimTypes.NameIdentifier, user.Id!)
+            new(JwtRegisteredClaimNames.Sub, user.Id!),
+            new(JwtRegisteredClaimNames.Email, user.Email!),
+            new(ClaimTypes.NameIdentifier, user.Id!)
         };
         foreach (var role in roles)
-            claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new(ClaimTypes.Role, role));
 
         var jwtKey = _configuration["Jwt:Key"];
         if (string.IsNullOrEmpty(jwtKey))

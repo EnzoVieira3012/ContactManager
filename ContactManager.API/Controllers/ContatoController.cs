@@ -10,14 +10,9 @@ namespace ContactManager.API.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ContatoController : ControllerBase
+public class ContatoController(IContatoService contatoService) : ControllerBase
 {
-    private readonly IContatoService _contatoService;
-
-    public ContatoController(IContatoService contatoService)
-    {
-        _contatoService = contatoService;
-    }
+    private readonly IContatoService _contatoService = contatoService;
 
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException("Usuário não identificado");
 

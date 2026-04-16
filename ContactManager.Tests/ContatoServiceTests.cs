@@ -239,8 +239,8 @@ public class ContatoServiceTests
     {
         var allActive = new List<Contato>
         {
-            new Contato { Id = 1, IsActive = true, UserId = "user1" },
-            new Contato { Id = 2, IsActive = true, UserId = "user2" }
+            new() { Id = 1, IsActive = true, UserId = "user1" },
+            new() { Id = 2, IsActive = true, UserId = "user2" }
         };
         _repositoryMock.Setup(r => r.GetAllActiveAsync())
             .ReturnsAsync(allActive);

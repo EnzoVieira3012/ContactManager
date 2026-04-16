@@ -5,14 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ContactManager.Infrastructure.Repositories;
 
-public class ContatoRepository : IContatoRepository
+public class ContatoRepository(AppDbContext context) : IContatoRepository
 {
-    private readonly AppDbContext _context;
-
-    public ContatoRepository(AppDbContext context)
-    {
-        _context = context;
-    }
+    private readonly AppDbContext _context = context;
 
     public async Task<Contato?> GetByIdAsync(int id)
     {

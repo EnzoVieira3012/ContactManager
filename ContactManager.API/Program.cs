@@ -13,7 +13,6 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Carrega variáveis do .env (se existir)
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
 if (File.Exists(envPath))
 {
@@ -25,7 +24,6 @@ if (File.Exists(envPath))
     }
 }
 
-// Connection string com placeholders
 var connStringTemplate = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connStringTemplate))
 {
@@ -48,16 +46,13 @@ foreach (var envVar in Environment.GetEnvironmentVariables().Keys)
     }
 }
 
-// DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(finalConnString));
 
-// Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-// Configuração JWT
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (string.IsNullOrEmpty(jwtKey))
     jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? "chave-padrao-temporaria-32bytes1234567890";
@@ -80,7 +75,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Controllers e Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -113,7 +107,6 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Injeção de dependências
 builder.Services.AddScoped<IContatoRepository, ContatoRepository>();
 builder.Services.AddScoped<IContatoService, ContatoService>();
 

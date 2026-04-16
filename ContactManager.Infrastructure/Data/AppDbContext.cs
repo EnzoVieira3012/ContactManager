@@ -4,10 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ContactManager.Infrastructure.Data;
 
-public class AppDbContext : IdentityDbContext<ApplicationUser>
+public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
     public DbSet<Contato> Contatos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -24,7 +22,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(e => e.IsActive).IsRequired();
             entity.Ignore(e => e.Idade);
             
-            // Relacionamento: um Contato pertence a um Usuário (Médico)
             entity.HasOne<ApplicationUser>()
                   .WithMany()
                   .HasForeignKey("UserId")
