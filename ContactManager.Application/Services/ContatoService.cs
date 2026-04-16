@@ -17,7 +17,6 @@ public class ContatoService : IContatoService
 
     public async Task<ContatoResponseDTO> CreateAsync(CreateContatoDTO dto)
     {
-        // Validação agora no validator
         ContatoValidator.Validate(dto.DataNascimento);
 
         var contato = new Contato
@@ -37,7 +36,6 @@ public class ContatoService : IContatoService
         var contato = await _repository.GetByIdAsync(dto.Id);
         if (contato == null) return null;
 
-        // Validação agora no validator
         ContatoValidator.Validate(dto.DataNascimento);
 
         contato.Nome = dto.Nome;
