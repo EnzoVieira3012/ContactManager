@@ -27,6 +27,13 @@ public class ContatoRepository : IContatoRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Contato>> GetAllActiveByUserAsync(string userId)
+    {
+        return await _context.Contatos
+            .Where(c => c.IsActive && c.UserId == userId)
+            .ToListAsync();
+    }
+
     public async Task<Contato> AddAsync(Contato contato)
     {
         _context.Contatos.Add(contato);

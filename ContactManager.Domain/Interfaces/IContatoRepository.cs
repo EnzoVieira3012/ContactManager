@@ -6,6 +6,7 @@ public interface IContatoRepository
 {
     Task<Contato?> GetByIdAsync(int id);
     Task<IEnumerable<Contato>> GetAllActiveAsync();
+    Task<IEnumerable<Contato>> GetAllActiveByUserAsync(string userId);
     Task<Contato> AddAsync(Contato contato);
     Task UpdateAsync(Contato contato);
     Task DeleteAsync(int id);
