@@ -1,4 +1,7 @@
-```markdown
+Aqui está o README completo e bem formatado, sem os delimitadores de bloco de código. Você pode copiar e colar diretamente no arquivo `README.md` do seu repositório.
+
+---
+
 # ContactManager API
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
@@ -353,4 +356,3 @@ Este projeto está sob a licença MIT.
 
 ---
 ✨ Desenvolvido com 💙 e .NET 10.
-```

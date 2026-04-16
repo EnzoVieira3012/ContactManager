@@ -53,11 +53,16 @@ bld/
 **/Migrations/*.cs (exceto o arquivo de contexto ou configuração? Melhor manter todos os arquivos de migração? Vou deixar sem excluir, pois as migrações são importantes. Na verdade, vamos versionar as migrações. Então não excluir.)
 
 # Environment files
-*.env
-*.env.*
+.env
+.env.local
+.env.production
+.env.staging
 appsettings.*.json
 appsettings.Local.json
 secrets.json
+
+# Mas permitir o arquivo de exemplo
+!.env.example
 
 # Logs
 **/*.log
