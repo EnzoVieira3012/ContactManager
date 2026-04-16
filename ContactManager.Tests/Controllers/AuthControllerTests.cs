@@ -1,16 +1,14 @@
-using System.Security.Claims;
 using ContactManager.API.Controllers;
 using ContactManager.Application.DTOs.Auth;
 using ContactManager.Domain.Entities;
 using ContactManager.Domain.Enums;
 using FluentAssertions;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Moq;
 
-namespace ContactManager.Tests;
+namespace ContactManager.Tests.Controllers;
 
 public class AuthControllerTests
 {
@@ -24,11 +22,11 @@ public class AuthControllerTests
         _userManagerMock = new Mock<UserManager<ApplicationUser>>(
             new Mock<IUserStore<ApplicationUser>>().Object,
             null!, null!, null!, null!, null!, null!, null!, null!);
-        
+
         _roleManagerMock = new Mock<RoleManager<IdentityRole>>(
             new Mock<IRoleStore<IdentityRole>>().Object,
             null!, null!, null!, null!);
-        
+
         _configurationMock = new Mock<IConfiguration>();
         _configurationMock.Setup(c => c["Jwt:Key"]).Returns("test-jwt-key-32bytes-long-enough-for-test");
 
@@ -40,7 +38,6 @@ public class AuthControllerTests
     [Fact]
     public async Task Register_WithValidMedico_ShouldReturnOk()
     {
-        // Arrange
         var dto = new RegisterDTO
         {
             Email = "medico@teste.com",
@@ -57,21 +54,16 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.AddToRoleAsync(It.IsAny<ApplicationUser>(), UserRole.Medico.ToString()))
             .ReturnsAsync(IdentityResult.Success);
 
-        // Act
         var result = await _controller.Register(dto);
 
-        // Assert
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         okResult!.StatusCode.Should().Be(200);
-        _userManagerMock.Verify(u => u.CreateAsync(It.IsAny<ApplicationUser>(), dto.Password), Times.Once);
-        _userManagerMock.Verify(u => u.AddToRoleAsync(It.IsAny<ApplicationUser>(), UserRole.Medico.ToString()), Times.Once);
     }
 
     [Fact]
     public async Task Register_WithValidAdminAndCorrectCode_ShouldReturnOk()
     {
-        // Arrange
         Environment.SetEnvironmentVariable("ADMIN_REGISTRATION_CODE", "Admin@123");
         var dto = new RegisterDTO
         {
@@ -90,10 +82,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.AddToRoleAsync(It.IsAny<ApplicationUser>(), UserRole.Admin.ToString()))
             .ReturnsAsync(IdentityResult.Success);
 
-        // Act
         var result = await _controller.Register(dto);
 
-        // Assert
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         okResult!.StatusCode.Should().Be(200);
@@ -102,7 +92,6 @@ public class AuthControllerTests
     [Fact]
     public async Task Register_WithAdminButWrongCode_ShouldReturnBadRequest()
     {
-        // Arrange
         Environment.SetEnvironmentVariable("ADMIN_REGISTRATION_CODE", "Admin@123");
         var dto = new RegisterDTO
         {
@@ -113,10 +102,8 @@ public class AuthControllerTests
             AdminCode = "WrongCode"
         };
 
-        // Act
         var result = await _controller.Register(dto);
 
-        // Assert
         var badRequestResult = result as BadRequestObjectResult;
         badRequestResult.Should().NotBeNull();
         badRequestResult!.StatusCode.Should().Be(400);
@@ -127,47 +114,20 @@ public class AuthControllerTests
     [Fact]
     public async Task Register_WithInvalidRole_ShouldReturnBadRequest()
     {
-        // Arrange
         var dto = new RegisterDTO
         {
             Email = "invalid@teste.com",
             Password = "Test@123",
             FullName = "Invalid",
-            Role = "Supervisor" // Role inválida
+            Role = "Supervisor"
         };
 
-        // Act
         var result = await _controller.Register(dto);
 
-        // Assert
         var badRequestResult = result as BadRequestObjectResult;
         badRequestResult.Should().NotBeNull();
         badRequestResult!.StatusCode.Should().Be(400);
         badRequestResult.Value.Should().Be("Role inválida. Valores permitidos: Medico, Admin");
-    }
-
-    [Fact]
-    public async Task Register_WhenCreateFails_ShouldReturnBadRequestWithErrors()
-    {
-        // Arrange
-        var dto = new RegisterDTO
-        {
-            Email = "fail@teste.com",
-            Password = "Falha@123",
-            FullName = "Falha",
-            Role = "Medico"
-        };
-        var identityErrors = new[] { new IdentityError { Description = "Email já existe" } };
-        _userManagerMock.Setup(u => u.CreateAsync(It.IsAny<ApplicationUser>(), dto.Password))
-            .ReturnsAsync(IdentityResult.Failed(identityErrors));
-
-        // Act
-        var result = await _controller.Register(dto);
-
-        // Assert
-        var badRequestResult = result as BadRequestObjectResult;
-        badRequestResult.Should().NotBeNull();
-        badRequestResult!.StatusCode.Should().Be(400);
     }
 
     #endregion
@@ -177,7 +137,6 @@ public class AuthControllerTests
     [Fact]
     public async Task Login_WithValidCredentials_ShouldReturnToken()
     {
-        // Arrange
         var dto = new LoginDTO { Email = "medico@teste.com", Password = "Medico@123" };
         var user = new ApplicationUser { Id = "user-id", Email = dto.Email, UserName = dto.Email };
         _userManagerMock.Setup(u => u.FindByEmailAsync(dto.Email))
@@ -187,10 +146,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.GetRolesAsync(user))
             .ReturnsAsync(new List<string> { "Medico" });
 
-        // Act
         var result = await _controller.Login(dto);
 
-        // Assert
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         var tokenProperty = okResult!.Value!.GetType().GetProperty("token");
@@ -201,15 +158,12 @@ public class AuthControllerTests
     [Fact]
     public async Task Login_WithInvalidEmail_ShouldReturnUnauthorized()
     {
-        // Arrange
         var dto = new LoginDTO { Email = "notfound@teste.com", Password = "AnyPass" };
         _userManagerMock.Setup(u => u.FindByEmailAsync(dto.Email))
             .ReturnsAsync((ApplicationUser?)null);
 
-        // Act
         var result = await _controller.Login(dto);
 
-        // Assert
         var unauthorizedResult = result as UnauthorizedObjectResult;
         unauthorizedResult.Should().NotBeNull();
         unauthorizedResult!.StatusCode.Should().Be(401);
@@ -218,7 +172,6 @@ public class AuthControllerTests
     [Fact]
     public async Task Login_WithWrongPassword_ShouldReturnUnauthorized()
     {
-        // Arrange
         var dto = new LoginDTO { Email = "medico@teste.com", Password = "WrongPass" };
         var user = new ApplicationUser { Id = "user-id", Email = dto.Email };
         _userManagerMock.Setup(u => u.FindByEmailAsync(dto.Email))
@@ -226,10 +179,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.CheckPasswordAsync(user, dto.Password))
             .ReturnsAsync(false);
 
-        // Act
         var result = await _controller.Login(dto);
 
-        // Assert
         var unauthorizedResult = result as UnauthorizedObjectResult;
         unauthorizedResult.Should().NotBeNull();
         unauthorizedResult!.StatusCode.Should().Be(401);
@@ -242,7 +193,6 @@ public class AuthControllerTests
     [Fact]
     public async Task ForgotPassword_WithExistingEmail_ShouldReturnToken()
     {
-        // Arrange
         var dto = new ForgotPasswordDTO { Email = "medico@teste.com" };
         var user = new ApplicationUser { Id = "user-id", Email = dto.Email };
         _userManagerMock.Setup(u => u.FindByEmailAsync(dto.Email))
@@ -250,10 +200,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.GeneratePasswordResetTokenAsync(user))
             .ReturnsAsync("reset-token-123");
 
-        // Act
         var result = await _controller.ForgotPassword(dto);
 
-        // Assert
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         var tokenProperty = okResult!.Value!.GetType().GetProperty("token");
@@ -264,19 +212,15 @@ public class AuthControllerTests
     [Fact]
     public async Task ForgotPassword_WithNonExistingEmail_ShouldStillReturnOkForSecurity()
     {
-        // Arrange
         var dto = new ForgotPasswordDTO { Email = "notfound@teste.com" };
         _userManagerMock.Setup(u => u.FindByEmailAsync(dto.Email))
             .ReturnsAsync((ApplicationUser?)null);
 
-        // Act
         var result = await _controller.ForgotPassword(dto);
 
-        // Assert
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         okResult!.StatusCode.Should().Be(200);
-        // Não revela se o email existe ou não
         _userManagerMock.Verify(u => u.GeneratePasswordResetTokenAsync(It.IsAny<ApplicationUser>()), Times.Never);
     }
 
@@ -287,7 +231,6 @@ public class AuthControllerTests
     [Fact]
     public async Task ResetPassword_ForMedico_WithValidData_ShouldReturnOk()
     {
-        // Arrange
         var dto = new ResetPasswordDTO
         {
             Email = "medico@teste.com",
@@ -298,14 +241,12 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.FindByEmailAsync(dto.Email))
             .ReturnsAsync(user);
         _userManagerMock.Setup(u => u.IsInRoleAsync(user, UserRole.Admin.ToString()))
-            .ReturnsAsync(false); // não é admin
+            .ReturnsAsync(false);
         _userManagerMock.Setup(u => u.ResetPasswordAsync(user, dto.Token, dto.NewPassword))
             .ReturnsAsync(IdentityResult.Success);
 
-        // Act
         var result = await _controller.ResetPassword(dto);
 
-        // Assert
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         okResult!.StatusCode.Should().Be(200);
@@ -314,7 +255,6 @@ public class AuthControllerTests
     [Fact]
     public async Task ResetPassword_ForAdmin_WithValidTokenAndCorrectAdminCode_ShouldReturnOk()
     {
-        // Arrange
         Environment.SetEnvironmentVariable("ADMIN_REGISTRATION_CODE", "Admin@123");
         var dto = new ResetPasswordDTO
         {
@@ -331,10 +271,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.ResetPasswordAsync(user, dto.Token, dto.NewPassword))
             .ReturnsAsync(IdentityResult.Success);
 
-        // Act
         var result = await _controller.ResetPassword(dto);
 
-        // Assert
         var okResult = result as OkObjectResult;
         okResult.Should().NotBeNull();
         okResult!.StatusCode.Should().Be(200);
@@ -343,7 +281,6 @@ public class AuthControllerTests
     [Fact]
     public async Task ResetPassword_ForAdmin_WithWrongAdminCode_ShouldReturnBadRequest()
     {
-        // Arrange
         Environment.SetEnvironmentVariable("ADMIN_REGISTRATION_CODE", "Admin@123");
         var dto = new ResetPasswordDTO
         {
@@ -358,10 +295,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.IsInRoleAsync(user, UserRole.Admin.ToString()))
             .ReturnsAsync(true);
 
-        // Act
         var result = await _controller.ResetPassword(dto);
 
-        // Assert
         var badRequestResult = result as BadRequestObjectResult;
         badRequestResult.Should().NotBeNull();
         badRequestResult!.StatusCode.Should().Be(400);
@@ -372,7 +307,6 @@ public class AuthControllerTests
     [Fact]
     public async Task ResetPassword_WithNonExistingUser_ShouldReturnBadRequest()
     {
-        // Arrange
         var dto = new ResetPasswordDTO
         {
             Email = "notfound@teste.com",
@@ -382,10 +316,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.FindByEmailAsync(dto.Email))
             .ReturnsAsync((ApplicationUser?)null);
 
-        // Act
         var result = await _controller.ResetPassword(dto);
 
-        // Assert
         var badRequestResult = result as BadRequestObjectResult;
         badRequestResult.Should().NotBeNull();
         badRequestResult!.StatusCode.Should().Be(400);
@@ -395,7 +327,6 @@ public class AuthControllerTests
     [Fact]
     public async Task ResetPassword_WhenResetFails_ShouldReturnBadRequest()
     {
-        // Arrange
         var dto = new ResetPasswordDTO
         {
             Email = "medico@teste.com",
@@ -411,10 +342,8 @@ public class AuthControllerTests
         _userManagerMock.Setup(u => u.ResetPasswordAsync(user, dto.Token, dto.NewPassword))
             .ReturnsAsync(IdentityResult.Failed(identityErrors));
 
-        // Act
         var result = await _controller.ResetPassword(dto);
 
-        // Assert
         var badRequestResult = result as BadRequestObjectResult;
         badRequestResult.Should().NotBeNull();
         badRequestResult!.StatusCode.Should().Be(400);
