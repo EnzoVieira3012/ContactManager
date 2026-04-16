@@ -86,6 +86,8 @@ public class ContatoService : IContatoService
         if (contato == null) return false;
         if (!isAdmin && contato.UserId != userId) return false;
 
+        if (contato.IsActive) return true;
+
         contato.IsActive = true;
         await _repository.UpdateAsync(contato);
         return true;
