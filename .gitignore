@@ -1,0 +1,88 @@
+# .NET build artifacts
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+.idea/
+
+# Rider
+.idea/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/packages/
+**/wwwroot/lib/
+**/node_modules/
+
+# Testing
+**/TestResults/
+**/coverage/
+**/coverage.json
+**/coverage.cobertura.xml
+**/.testlogger/
+
+# .NET Core / EF Core
+**/Migrations/*.Designer.cs
+**/Migrations/*.cs (exceto o arquivo de contexto ou configuração? Melhor manter todos os arquivos de migração? Vou deixar sem excluir, pois as migrações são importantes. Na verdade, vamos versionar as migrações. Então não excluir.)
+
+# Environment files
+*.env
+*.env.*
+appsettings.*.json
+appsettings.Local.json
+secrets.json
+
+# Logs
+**/*.log
+**/*.logs
+
+# Temp files
+*.tmp
+*.temp
+*.cache
+*.pid
+*.seed
+*.pid.lock
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.dll
+*.exe
+*.exe.manifest
+*.pdb
+*.cache
+*.deps.json
+*.runtimeconfig.json
