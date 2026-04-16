@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Carrega variáveis do .env (opcional)
 var envPath = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
 if (File.Exists(envPath))
 {
@@ -19,7 +18,6 @@ if (File.Exists(envPath))
     }
 }
 
-// Configurar connection string (substitui placeholders)
 var connStringTemplate = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connStringTemplate))
 {
@@ -68,7 +66,6 @@ if (!app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.MapControllers();
 
-// Endpoint raiz
 app.MapGet("/", () => Results.Ok(new { 
     api = "ContactManager API",
     version = "1.0",
@@ -77,7 +74,6 @@ app.MapGet("/", () => Results.Ok(new {
 }))
 .WithName("Root");
 
-// Endpoint de health check
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
    .WithName("HealthCheck");
 
