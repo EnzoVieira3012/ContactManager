@@ -8,6 +8,8 @@ public class Contato
     public string Sexo { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
 
+    public string UserId { get; set; } = string.Empty;
+
     public int Idade => CalcularIdade();
 
     private int CalcularIdade()

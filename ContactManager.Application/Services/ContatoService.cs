@@ -1,8 +1,8 @@
 using ContactManager.Domain.Entities;
 using ContactManager.Domain.Interfaces;
-using ContactManager.Application.DTOs;
 using ContactManager.Application.Validators;
 using ContactManager.Application.Interfaces;
+using ContactManager.Application.DTOs.Contato;
 
 namespace ContactManager.Application.Services;
 
@@ -15,7 +15,7 @@ public class ContatoService : IContatoService
         _repository = repository;
     }
 
-    public async Task<ContatoResponseDTO> CreateAsync(CreateContatoDTO dto)
+    public async Task<ContatoResponseDTO> CreateAsync(CreateContatoDTO dto, string userId)
     {
         ContatoValidator.Validate(dto.DataNascimento);
 
@@ -24,17 +24,21 @@ public class ContatoService : IContatoService
             Nome = dto.Nome,
             DataNascimento = dto.DataNascimento,
             Sexo = dto.Sexo,
-            IsActive = true
+            IsActive = true,
+            UserId = userId
         };
 
         var created = await _repository.AddAsync(contato);
         return MapToResponse(created);
     }
 
-    public async Task<ContatoResponseDTO?> UpdateAsync(UpdateContatoDTO dto)
+    public async Task<ContatoResponseDTO?> UpdateAsync(UpdateContatoDTO dto, string userId, bool isAdmin)
     {
-        var contato = await _repository.GetByIdAsync(dto.Id);
+        var contato = await _repository.GetByIdIncludingInactiveAsync(dto.Id);
         if (contato == null) return null;
+
+        if (!isAdmin && contato.UserId != userId)
+            throw new UnauthorizedAccessException("Você não tem permissão para alterar este contato.");
 
         ContatoValidator.Validate(dto.DataNascimento);
 
@@ -46,43 +50,52 @@ public class ContatoService : IContatoService
         return MapToResponse(contato);
     }
 
-    public async Task<ContatoResponseDTO?> GetByIdAsync(int id)
+    public async Task<ContatoResponseDTO?> GetByIdAsync(int id, string userId, bool isAdmin)
     {
-        var contato = await _repository.GetByIdAsync(id);
-        return contato == null ? null : MapToResponse(contato);
+        var contato = await _repository.GetByIdIncludingInactiveAsync(id);
+        if (contato == null) return null;
+        if (!isAdmin && contato.UserId != userId) return null;
+        return MapToResponse(contato);
     }
 
-    public async Task<IEnumerable<ContatoResponseDTO>> GetAllActiveAsync()
+    public async Task<IEnumerable<ContatoResponseDTO>> GetAllActiveAsync(string userId, bool isAdmin)
     {
-        var contatos = await _repository.GetAllActiveAsync();
+        IEnumerable<Contato> contatos;
+        if (isAdmin)
+            contatos = await _repository.GetAllActiveAsync();      // busca todos ativos
+        else
+            contatos = await _repository.GetAllActiveByUserAsync(userId); // só os do médico
+
         return contatos.Select(MapToResponse);
     }
 
-    public async Task<bool> DeactivateAsync(int id)
+    public async Task<bool> DeactivateAsync(int id, string userId, bool isAdmin)
     {
-        var contato = await _repository.GetByIdAsync(id);
+        var contato = await _repository.GetByIdIncludingInactiveAsync(id);
         if (contato == null) return false;
+        if (!isAdmin && contato.UserId != userId) return false;
 
         contato.IsActive = false;
         await _repository.UpdateAsync(contato);
         return true;
     }
 
-    public async Task<bool> ActivateAsync(int id)
+    public async Task<bool> ActivateAsync(int id, string userId, bool isAdmin)
     {
         var contato = await _repository.GetByIdIncludingInactiveAsync(id);
         if (contato == null) return false;
-        if (contato.IsActive) return true;
+        if (!isAdmin && contato.UserId != userId) return false;
 
         contato.IsActive = true;
         await _repository.UpdateAsync(contato);
         return true;
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int id, string userId, bool isAdmin)
     {
-        var contato = await _repository.GetByIdAsync(id);
+        var contato = await _repository.GetByIdIncludingInactiveAsync(id);
         if (contato == null) return false;
+        if (!isAdmin && contato.UserId != userId) return false;
 
         await _repository.DeleteAsync(id);
         return true;
