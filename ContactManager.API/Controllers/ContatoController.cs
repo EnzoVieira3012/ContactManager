@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ContactManager.Application.DTOs.Contato;
 using ContactManager.Application.Interfaces;
+using ContactManager.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +21,7 @@ public class ContatoController : ControllerBase
 
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new UnauthorizedAccessException("Usuário não identificado");
 
-    private bool IsAdmin() => User.IsInRole("Admin");
+    private bool IsAdmin() => User.IsInRole(UserRole.Admin.ToString());
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateContatoDTO dto)

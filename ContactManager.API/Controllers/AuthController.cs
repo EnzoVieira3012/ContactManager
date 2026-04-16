@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using ContactManager.Application.DTOs.Auth;
 using ContactManager.Domain.Entities;
+using ContactManager.Domain.Enums;
 
 namespace ContactManager.API.Controllers;
 
@@ -29,6 +30,16 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterDTO model)
     {
+        if (!Enum.TryParse<UserRole>(model.Role, true, out var role))
+            return BadRequest("Role inválida. Valores permitidos: Medico, Admin");
+
+        if (role == UserRole.Admin)
+        {
+            var expectedCode = Environment.GetEnvironmentVariable("ADMIN_REGISTRATION_CODE") ?? "Admin@123";
+            if (string.IsNullOrEmpty(model.AdminCode) || model.AdminCode != expectedCode)
+                return BadRequest("Código de administrador inválido.");
+        }
+
         var user = new ApplicationUser
         {
             UserName = model.Email,
@@ -39,10 +50,11 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(result.Errors);
 
-        if (!await _roleManager.RoleExistsAsync(model.Role))
-            await _roleManager.CreateAsync(new IdentityRole(model.Role));
+        var roleName = role.ToString();
+        if (!await _roleManager.RoleExistsAsync(roleName))
+            await _roleManager.CreateAsync(new IdentityRole(roleName));
 
-        await _userManager.AddToRoleAsync(user, model.Role);
+        await _userManager.AddToRoleAsync(user, roleName);
 
         return Ok(new { message = "Usuário criado com sucesso" });
     }
@@ -60,9 +72,42 @@ public class AuthController : ControllerBase
         return Ok(new { token });
     }
 
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordDTO model)
+    {
+        var user = await _userManager.FindByEmailAsync(model.Email);
+        if (user == null)
+            return Ok(new { message = "Se o email existir, você receberá um link de redefinição." });
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        // Em produção: enviar email com link contendo token
+        return Ok(new { token, message = "Use este token para redefinir sua senha." });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordDTO model)
+    {
+        var user = await _userManager.FindByEmailAsync(model.Email);
+        if (user == null)
+            return BadRequest("Usuário não encontrado.");
+
+        var isAdmin = await _userManager.IsInRoleAsync(user, UserRole.Admin.ToString());
+        if (isAdmin)
+        {
+            var expectedCode = Environment.GetEnvironmentVariable("ADMIN_REGISTRATION_CODE") ?? "Admin@123";
+            if (string.IsNullOrEmpty(model.AdminCode) || model.AdminCode != expectedCode)
+                return BadRequest("Código de administrador inválido para redefinir senha.");
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
+        if (!result.Succeeded)
+            return BadRequest(result.Errors);
+
+        return Ok(new { message = "Senha redefinida com sucesso." });
+    }
+
     private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
     {
-        // O operador ! suprime o aviso CS8604 porque o Identity garante que Id e Email não são nulos
         var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id!),

@@ -87,7 +87,6 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "API", Version = "v1" });
     
-    // Configuração do esquema de segurança Bearer
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -120,7 +119,6 @@ builder.Services.AddScoped<IContatoService, ContatoService>();
 
 var app = builder.Build();
 
-// Middleware pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -137,7 +135,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Endpoints adicionais
 app.MapGet("/", () => Results.Ok(new
 {
     api = "ContactManager API",
