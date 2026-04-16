@@ -1,3 +1,10 @@
+using ContactManager.Application.Services;
+using ContactManager.Application.Interfaces;
+using ContactManager.Domain.Interfaces;
+using ContactManager.Infrastructure.Data;
+using ContactManager.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Carrega variáveis do .env (opcional)
@@ -12,9 +19,38 @@ if (File.Exists(envPath))
     }
 }
 
+// Configurar connection string (substitui placeholders)
+var connStringTemplate = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrEmpty(connStringTemplate))
+{
+    throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+}
+
+var finalConnString = connStringTemplate;
+foreach (var envVar in Environment.GetEnvironmentVariables().Keys)
+{
+    var key = envVar.ToString();
+    if (string.IsNullOrEmpty(key)) continue;
+    var pattern = $"${{{key}}}";
+    if (finalConnString.Contains(pattern))
+    {
+        var envValue = Environment.GetEnvironmentVariable(key);
+        if (!string.IsNullOrEmpty(envValue))
+        {
+            finalConnString = finalConnString.Replace(pattern, envValue);
+        }
+    }
+}
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(finalConnString));
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddScoped<IContatoRepository, ContatoRepository>();
+builder.Services.AddScoped<IContatoService, ContatoService>();
 
 var app = builder.Build();
 
@@ -32,19 +68,17 @@ if (!app.Environment.IsDevelopment())
 app.UseAuthorization();
 app.MapControllers();
 
-// Endpoint de exemplo
-var summaries = new[] { "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching" };
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast(DateOnly.FromDateTime(DateTime.Now.AddDays(index)), Random.Shared.Next(-20, 55), summaries[Random.Shared.Next(summaries.Length)]))
-        .ToArray();
-    return forecast;
-});
+// Endpoint raiz
+app.MapGet("/", () => Results.Ok(new { 
+    api = "ContactManager API",
+    version = "1.0",
+    endpoints = new[] { "/health", "/swagger", "/api/Contato" },
+    message = "Bem-vindo à API de gerenciamento de contatos. Use /swagger para documentação."
+}))
+.WithName("Root");
+
+// Endpoint de health check
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
+   .WithName("HealthCheck");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
